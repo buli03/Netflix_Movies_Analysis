@@ -25,6 +25,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 import re
+
+## recommendation system
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 ```
 
 ### Loading data
@@ -952,7 +956,7 @@ netflix_movies['added_delay']
 
 
 
-### Analysis
+### Analysis charts
 
 
 ```python
@@ -1076,4 +1080,154 @@ plt.show()
     
 ![png](output_42_0.png)
     
+
+
+### Recommendation system
+
+
+```python
+# limit to first 900 rows
+netflix_movies_limited = netflix_movies.head(900)
+```
+
+
+```python
+
+
+tfidf = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf.fit_transform(netflix_movies_limited['description'])
+
+# content-based similarity
+content_similarity = cosine_similarity(tfidf_matrix, tfidf_matrix)
+
+# category-based similarity
+category_similarity = netflix_movies_limited.apply(lambda row: netflix_movies_limited['listed_in'].apply(
+    lambda listed_in: sum(1 for category in listed_in if category in row['listed_in'])), axis=1)
+
+# content-based and category-based similarity 50/50
+similarity_matrix = 0.5 * content_similarity + 0.5 * category_similarity
+
+# movies for a given movie
+def recommend_movies(title, similarity_matrix, top_k=15):
+    movie_index = netflix_movies_limited[netflix_movies_limited['title'] == title].index[0]
+    movie_similarities = enumerate(similarity_matrix[movie_index])
+    recommended_movies = sorted(movie_similarities, key=lambda x: x[1], reverse=True)[1:top_k+1]
+    return [netflix_movies_limited.iloc[movie_id]['title'] for movie_id, _ in recommended_movies]
+
+```
+
+##### Test
+
+
+```python
+# Vendetta: Truth, Lies and The Mafia
+title_to_find = 'Ganglands'
+row_with_title = netflix_movies.loc[netflix_movies['title'] == title_to_find]
+row_with_title
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>type</th>
+      <th>title</th>
+      <th>director</th>
+      <th>cast</th>
+      <th>country</th>
+      <th>date_added</th>
+      <th>release_year</th>
+      <th>rating</th>
+      <th>duration_seasons</th>
+      <th>listed_in</th>
+      <th>description</th>
+      <th>duration_minutes</th>
+      <th>how_old</th>
+      <th>added_delay</th>
+    </tr>
+    <tr>
+      <th>show_id</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>s3</th>
+      <td>TV Show</td>
+      <td>Ganglands</td>
+      <td>Julien Leclercq</td>
+      <td>[Sami Bouajila, Tracy Gotoas, Samuel Jouy, Nab...</td>
+      <td>No data</td>
+      <td>2021-09-24</td>
+      <td>2021</td>
+      <td>TV-MA</td>
+      <td>1.0</td>
+      <td>[Crime TV Shows, International TV Shows, TV Ac...</td>
+      <td>To protect his family from a powerful drug lor...</td>
+      <td>NaN</td>
+      <td>3</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+
+```python
+# test  recommend_movies(title, similarity_matrix):
+recommended = recommend_movies(title_to_find, similarity_matrix)
+recommended
+```
+
+
+
+
+    ['Lupin',
+     'Undercover',
+     'Bangkok Breaking',
+     'Okupas',
+     'The Flash',
+     'The Defeated',
+     'Somos.',
+     'L.A.â\x80\x99s Finest',
+     'The Snitch Cartel: Origins',
+     'Vendetta: Truth, Lies and The Mafia',
+     'Jaguar',
+     'Monsters Inside: The 24 Faces of Billy Milligan',
+     'Resurrection: Ertugrul',
+     'La casa de papel',
+     'Q-Force']
+
 
